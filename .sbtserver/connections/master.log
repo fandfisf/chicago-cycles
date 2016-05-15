@@ -1,0 +1,7 @@
+New log file opened at Sat May 14 19:21:46 PDT 2016 by 5095@Swan.local
+Taking next connection to: 55968
+New client attempting to connect on port: 55969-55968
+  Address = /172.16.3.16:55968
+This client on port 55969 has uuid a3cda430-3f5b-4cf0-92ae-15647dbd9486 configName activator humanReadableName Activator protocolVersion 3 featureTags Vector()
+Connected Clients: activator-a3cda430-3f5b-4cf0-92ae-15647dbd9486
+Taking next connection to: 55968
