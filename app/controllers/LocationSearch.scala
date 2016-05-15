@@ -1,10 +1,13 @@
 package controllers
 
+import javax.inject.Inject
+
 import play.api.data.Forms._
 import play.api.data._
 import play.api.mvc._
+import services.BikeDataReader
 
-class LocationSearch extends Controller {
+class LocationSearch @Inject()(bdr:BikeDataReader) extends Controller {
   val form = Form(
     tuple(
       "street" -> text,
@@ -13,6 +16,7 @@ class LocationSearch extends Controller {
   )
 
   def index = Action {
+    bdr.pullData()
     Ok(views.html.search())
   }
 
