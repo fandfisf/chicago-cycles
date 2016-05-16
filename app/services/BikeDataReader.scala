@@ -2,13 +2,14 @@ package services
 
 import javax.inject.{Inject, Singleton}
 
+import com.google.inject.Provider
 import models.Count._
 import models.Station
 import play.api.libs.json.{JsArray, JsValue, Json}
 import play.api.libs.ws.WSClient
-import play.api.{Configuration, Logger}
+import play.api.{Application, Configuration, Logger}
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 
 /**
   * Created by Prashant S Khanwale @ Suveda LLC  on 5/15/16.
@@ -17,10 +18,13 @@ trait BikeDataReader {
   def checkData(): Boolean
 
   def pullData(): Boolean
+
+  def queryData(phrase:String):Future[String]
 }
 
 @Singleton
-class BikeDataReaderImpl @Inject()(ws: WSClient, configuration: Configuration)(implicit exec: ExecutionContext) extends BikeDataReader {
+class BikeDataReaderImpl @Inject()(appProvider: Provider[Application],ws: WSClient, configuration: Configuration)(implicit exec: ExecutionContext) extends BikeDataReader {
+  implicit lazy val app = appProvider.get()
   def checkData(): Boolean = {
     Logger.info(s"Pulling data from ${configuration.getString("elasticSearch.inputDataUrl").getOrElse("URL not specified")}")
     configuration.getString("elasticSearch.indexName") match {
@@ -45,34 +49,42 @@ class BikeDataReaderImpl @Inject()(ws: WSClient, configuration: Configuration)(i
     }
     false
   }
-
   def pullData():Boolean = {
-    val json :JsValue = Json.parse (
-      """
-        |{"executionTime":"2016-05-15 01:44:31 PM","stationBeanList":[{"id":2,"stationName":"Buckingham Fountain","availableDocks":26,"totalDocks":35,"latitude":41.876428,"longitude":-87.620339,"statusValue":"In Service","statusKey":1,"availableBikes":9,"stAddress1":"Buckingham Fountain","stAddress2":"","city":"Chicago","postalCode":"","location":"","altitude":"","testStation":false,"lastCommunicationTime":null,"landMark":"541","renting":true,"is_renting":true},{"id":3,"stationName":"Shedd Aquarium","availableDocks":27,"totalDocks":31,"latitude":41.86722595682,"longitude":-87.6153553902,"statusValue":"In Service","statusKey":1,"availableBikes":4,"stAddress1":"Shedd Aquarium","stAddress2":"","city":"Chicago","postalCode":"","location":"","altitude":"","testStation":false,"lastCommunicationTime":null,"landMark":"544","renting":true,"is_renting":true}]}
-      """.stripMargin)
+    val json :JsValue  =   Json.parse(app.resourceAsStream("divvy-data.json").get)
     val sb = (json \ "stationBeanList")
-    Logger.info(s"First station is ${sb(0)}, second is ${sb(1)} the total is --- \n ${sb.as[JsArray].value.size}")//and there are a total of ${sb.as[JsArray].value.size} stations.")
+    Logger.info(s"First station is ${sb(0)}, second is ${sb(1)} the total is --- \n ${sb.as[JsArray].value.size}")
     val stations = (json \ "stationBeanList").as[Seq[Station]]
-    Logger.info(s"From stations SEQ - First station is ${stations(0)}, second is ${stations(1)} the total is --- \n ${stations.size}")//and there are a total of ${sb.as[JsArray].value.size} stations.")
-    false
+    Logger.info(s"From stations SEQ - First station is ${stations(0)}, second is ${stations(1)} the total is --- \n ${stations.size}")
+    stations.foreach(station => ws.url(s"http://localhost:9200/chicago-city-bike-data/station/${station.id}").put(Json.writes[Station].writes(station)))
+    true
   }
 
-  def pull1Data(): Boolean = {
+  def queryData (phrase:String):Future[String] = {
+    ws.url(s"http://localhost:9200/chicago-city-bike-data/station/_search").post(
+      s"""
+        |{
+        |  "query" : {
+        |      "match_phrase" : {
+        |          "stAddress1" : "${phrase}"
+        |      }
+        |  }
+        |}
+      """.stripMargin).map ({
+      _.body
+      })
+  }
+  def pullRealData(): Boolean = {
     Logger.info(s"Pulling data from ${configuration.getString("elasticSearch.inputDataUrl").getOrElse("URL not specified")}")
     configuration.getString("elasticSearch.inputDataUrl") match {
       case Some(url) => {
-        ws.url(url).get().map {
+        ws.url(url).get().map ({
           response =>
             Logger.info(s"converting json response to JSON objects.")
-//            val stationList = (response.json\"stationBeanList").as[JsArray[Station]]
-//            Logger.info(s"Chicago bike data [${stationList}]")
-
-        }
+            //Do stuff with the data
+        })
       }
     }
     false
   }
 }
 
-//  (response.json \ "stationBeanList" ).as[List[Station]]
