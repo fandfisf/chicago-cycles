@@ -10,10 +10,7 @@ import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 class LocationSearch @Inject()(bdr:BikeDataReader) extends Controller {
   val form = Form(
-    tuple(
-      "street" -> text,
-      "crossStreet" -> text
-    )
+      "street" -> text
   )
 
   def index = Action {
@@ -22,9 +19,9 @@ class LocationSearch @Inject()(bdr:BikeDataReader) extends Controller {
   }
 
   def submit = Action.async( { implicit request =>
-    val (street, crossStreet) = form.bindFromRequest.get
+    val (street) = form.bindFromRequest.get
     val stations = bdr.queryData(street)
-    stations.map ( s => Ok("Bike shops near %s %s are %s ".format(street, crossStreet,s)))
+    stations.map ( s => Ok("Bike shops near %s  are %s ".format(street,s)))
   })
 }
 
